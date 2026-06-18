@@ -4,396 +4,461 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>單字學習卡 (SRS 模式)</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & ReactDOM -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- SheetJS (XLSX) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
-        body { font-family: 'Inter', 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
-        .animate-in { animation: zoomIn 0.5s ease-out; }
-        @keyframes zoomIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: #f1f5f9; min-height: 100vh; }
+
+        .page { display: flex; flex-direction: column; align-items: center; padding: 40px 16px; min-height: 100vh; }
+        .main-col { width: 100%; max-width: 512px; }
+
+        /* Upload panel */
+        .upload-panel { background: white; padding: 24px; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; margin-bottom: 16px; }
+        .panel-title { font-size: 1.1rem; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+        .btn-upload { width: 100%; padding: 12px; background: #eff6ff; color: #2563eb; font-weight: 600; border-radius: 12px; border: 1px solid #bfdbfe; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.95rem; transition: background 0.15s; }
+        .btn-upload:hover { background: #dbeafe; }
+
+        /* Stats bar */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+        .stat-box { background: white; padding: 8px; border-radius: 12px; text-align: center; border: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .stat-label { font-size: 10px; color: #94a3b8; font-weight: 700; text-transform: uppercase; }
+        .stat-val { font-size: 1.1rem; font-weight: 700; color: #1e293b; }
+
+        /* Card */
+        .card-wrap { position: relative; cursor: pointer; border-radius: 32px; background: white; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; overflow: hidden; aspect-ratio: 4/3; display: flex; flex-direction: column; }
+        .progress-bar-bg { position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: #f1f5f9; z-index: 20; }
+        .progress-bar-fill { height: 100%; background: #3b82f6; transition: width 0.5s; }
+        .card-header { position: absolute; top: 12px; right: 16px; display: flex; align-items: center; gap: 8px; z-index: 10; }
+        .card-counter { font-size: 10px; font-weight: 700; color: #94a3b8; background: rgba(255,255,255,0.9); padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0; }
+        .btn-info, .btn-rate { background: #f1f5f9; color: #64748b; border: none; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 10px; font-weight: 700; }
+        .btn-rate { border-radius: 8px; padding: 0 8px; width: auto; }
+        .card-body { flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px; overflow: hidden; }
+        .front-content { display: flex; align-items: center; gap: 16px; }
+        .front-word { font-size: 3rem; font-weight: 700; color: #1e293b; text-align: center; }
+        .btn-speak { padding: 8px; background: #eff6ff; color: #3b82f6; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .back-content { width: 100%; color: #334155; font-weight: 500; overflow-y: auto; max-height: 100%; }
+        .back-line { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+        .back-line-speak { background: none; border: none; color: #cbd5e1; cursor: pointer; padding: 4px; display: flex; align-items: center; }
+        .back-line-speak:hover { color: #3b82f6; }
+        .card-footer { padding: 8px; background: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center; font-size: 10px; color: #94a3b8; }
+
+        /* SRS buttons */
+        .srs-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 32px; transition: opacity 0.2s; }
+        .srs-grid.hidden-btns { opacity: 0; pointer-events: none; }
+        .btn-srs { padding: 16px; color: white; border: none; border-radius: 16px; font-weight: 700; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .btn-again { background: #ef4444; }
+        .btn-hard { background: #f97316; }
+        .btn-good { background: #22c55e; }
+        .btn-easy { background: #3b82f6; }
+
+        /* Completion screen */
+        .complete-screen { background: white; padding: 40px; border-radius: 40px; box-shadow: 0 8px 40px rgba(0,0,0,0.12); border: 1px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; text-align: center; animation: zoomIn 0.5s ease-out; }
+        @keyframes zoomIn { from { opacity:0; transform: scale(0.95); } to { opacity:1; transform: scale(1); } }
+        .trophy-icon { padding: 24px; background: #fefce8; color: #eab308; border-radius: 50%; margin-bottom: 24px; }
+        .complete-title { font-size: 1.875rem; font-weight: 900; color: #1e293b; margin-bottom: 8px; }
+        .complete-sub { color: #64748b; margin-bottom: 32px; font-weight: 500; }
+        .complete-stats { width: 100%; background: #f8fafc; border-radius: 24px; padding: 24px; border: 1px solid #f1f5f9; margin-bottom: 32px; }
+        .complete-stats-title { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .complete-stat-row { display: flex; justify-content: space-between; font-size: 0.875rem; font-weight: 600; margin-bottom: 10px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .complete-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; }
+        .btn-restart { padding: 16px; background: #2563eb; color: white; font-weight: 700; border: none; border-radius: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
+        .btn-newfile { padding: 16px; background: #f1f5f9; color: #334155; font-weight: 700; border: 1px solid #e2e8f0; border-radius: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15,23,42,0.4); backdrop-filter: blur(4px); }
+        .modal { background: white; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); max-width: 400px; width: 100%; overflow: hidden; border: 1px solid #e2e8f0; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 24px; border-bottom: 1px solid #f1f5f9; }
+        .modal-title { font-size: 1.1rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px; }
+        .modal-close { padding: 8px; background: none; border: none; color: #94a3b8; cursor: pointer; border-radius: 50%; }
+        .modal-close:hover { background: #f1f5f9; }
+        .modal-body { padding: 24px; }
+        .modal-section { margin-bottom: 24px; }
+        .modal-section h3 { font-weight: 700; color: #334155; font-size: 0.75rem; text-transform: uppercase; border-left: 4px solid #3b82f6; padding-left: 8px; margin-bottom: 8px; }
+        .modal-section.green h3 { border-color: #22c55e; }
+        .modal-section ul { list-style: none; }
+        .modal-section ul li { font-size: 0.875rem; color: #475569; margin-bottom: 6px; }
+        kbd { padding: 2px 6px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; }
+        .modal-footer { padding: 16px 24px; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+        .btn-modal-close { width: 100%; padding: 12px; background: none; border: none; font-weight: 700; color: #475569; cursor: pointer; }
+
+        .hidden { display: none !important; }
+        svg { flex-shrink: 0; }
     </style>
 </head>
-<body class="bg-slate-100">
-    <div id="root"></div>
+<body>
+<div class="page">
+    <div class="main-col">
+        <!-- Upload Panel -->
+        <div class="upload-panel">
+            <div class="panel-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M15 3v18M3 15h18M3 9h18M9 3v18"/></svg>
+                單字學習卡 (SRS 模式)
+            </div>
+            <button class="btn-upload" id="uploadBtn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                選擇 EXCEL 檔案
+            </button>
+            <input type="file" accept=".xlsx,.xls" id="fileInput" class="hidden">
+        </div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        <!-- Stats -->
+        <div class="stats-grid hidden" id="statsGrid">
+            <div class="stat-box"><span class="stat-label">重來</span><span class="stat-val" id="statAgain">0</span></div>
+            <div class="stat-box"><span class="stat-label">困難</span><span class="stat-val" id="statHard">0</span></div>
+            <div class="stat-box"><span class="stat-label">良好</span><span class="stat-val" id="statGood">0</span></div>
+            <div class="stat-box"><span class="stat-label">簡單</span><span class="stat-val" id="statEasy">0</span></div>
+        </div>
 
-        const STORAGE_KEY = 'word_flashcard_progress';
-
-        // SVG Icons using inline rendering to avoid external dependency issues
-        const Icon = ({ name, size = 20, className = "", strokeWidth = 2 }) => {
-            const icons = {
-                Volume2: <path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" />,
-                Upload: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />,
-                FileSpreadsheet: (
-                    <React.Fragment>
-                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                        <path d="M15 3v18M3 15h18M3 9h18M9 3v18" />
-                    </React.Fragment>
-                ),
-                Info: (
-                    <React.Fragment>
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M12 16v-4M12 8h.01" />
-                    </React.Fragment>
-                ),
-                X: <path d="M18 6L6 18M6 6l12 12" />,
-                BarChart3: <path d="M3 3v18h18M18 17V9M13 17V5M8 17v-4" />,
-                RotateCcw: (
-                    <React.Fragment>
-                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                        <path d="M3 3v5h5" />
-                    </React.Fragment>
-                ),
-                Trophy: (
-                    <React.Fragment>
-                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-                    </React.Fragment>
-                ),
-                CheckCircle2: (
-                    <React.Fragment>
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="m9 12 2 2 4-4" />
-                    </React.Fragment>
-                )
-            };
-
-            return (
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width={size}
-                    height={size}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={strokeWidth}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className={className}
-                >
-                    {icons[name]}
-                </svg>
-            );
-        };
-
-        function App() {
-            const [cards, setCards] = useState([]);
-            const [initialData, setInitialData] = useState([]);
-            const [totalInitial, setTotalInitial] = useState(0);
-            const [stats, setStats] = useState({ again: 0, hard: 0, good: 0, easy: 0 });
-            const [isFlipped, setIsFlipped] = useState(false);
-            const [hasInteracted, setHasInteracted] = useState(false);
-            const [baseRate, setBaseRate] = useState(0.8);
-            const [showInfo, setShowInfo] = useState(false);
-            const speechRateRef = useRef(0.8);
-            const fileInputRef = useRef(null);
-
-            // 初始化時從 localStorage 讀取進度
-            useEffect(() => {
-                const savedProgress = localStorage.getItem(STORAGE_KEY);
-                if (savedProgress) {
-                    try {
-                        const { cards, initialData, totalInitial, stats, hasInteracted } = JSON.parse(savedProgress);
-                        setCards(cards || []);
-                        setInitialData(initialData || []);
-                        setTotalInitial(totalInitial || 0);
-                        setStats(stats || { again: 0, hard: 0, good: 0, easy: 0 });
-                        setHasInteracted(hasInteracted || false);
-                    } catch (e) {
-                        console.error("無法讀取存檔數據", e);
-                    }
-                }
-            }, []);
-
-            // 當關鍵數據變動時，自動儲存至 localStorage
-            useEffect(() => {
-                if (totalInitial > 0) {
-                    const progress = {
-                        cards,
-                        initialData,
-                        totalInitial,
-                        stats,
-                        hasInteracted
-                    };
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-                }
-            }, [cards, initialData, totalInitial, stats, hasInteracted]);
-
-            const toggleSpeechRate = (e) => {
-                if (e) e.stopPropagation();
-                let nextRate;
-                if (speechRateRef.current === 0.5) nextRate = 0.8;
-                else if (speechRateRef.current === 0.8) nextRate = 1.0;
-                else nextRate = 0.5;
-                speechRateRef.current = nextRate;
-                setBaseRate(nextRate);
-            };
-
-            const speak = (text) => {
-                if (!text) return;
-                window.speechSynthesis.cancel();
-                const englishOnly = text.replace(/[\u4e00-\u9fa5]/g, '').trim();
-                if (!englishOnly) return;
-                const utterance = new SpeechSynthesisUtterance(englishOnly);
-                 utterance.lang = 'en-US';
-                utterance.rate = speechRateRef.current;
-                window.speechSynthesis.speak(utterance);
-            };
-
-            const isExampleSentence = (text) => {
-                const hasBrackets = /[\[\]\/]/.test(text);
-                const hasEnglish = /[a-zA-Z]/.test(text);
-                return !hasBrackets && hasEnglish;
-            };
-
-            const getLastEnglishSentence = (backText) => {
-                if (!backText) return null;
-                const lines = backText.split('\n').map(l => l.trim()).filter(l => l !== "");
-                for (let i = lines.length - 1; i >= 0; i--) {
-                    if (isExampleSentence(lines[i])) return lines[i];
-                }
-                return null;
-            };
-
-            useEffect(() => {
-                if (cards.length === 0 || !hasInteracted) return;
-                const currentCard = cards[0];
-                if (!isFlipped) speak(currentCard.word);
-                else {
-                    const sentence = getLastEnglishSentence(currentCard.backText);
-                    if (sentence) speak(sentence);
-                }
-            }, [cards, isFlipped, hasInteracted]);
-
-            const handleSRS = (type) => {
-                if (cards.length === 0) return;
-                const currentCard = cards[0];
-                const remainingCards = cards.slice(1);
-                let newCards = [...remainingCards];
-                setStats(prev => ({ ...prev, [type]: prev[type] + 1 }));
-
-                switch (type) {
-                    case 'again': newCards.splice(1, 0, currentCard); break;
-                    case 'hard': newCards.splice(Math.floor(newCards.length / 2), 0, currentCard); break;
-                    case 'good': newCards.push(currentCard); break;
-                    case 'easy': break;
-                }
-                setCards(newCards);
-                setIsFlipped(false);
-            };
-
-            const restartSession = () => {
-                if (initialData.length === 0) return;
-                const shuffled = [...initialData].sort(() => Math.random() - 0.5);
-                setCards(shuffled);
-                setStats({ again: 0, hard: 0, good: 0, easy: 0 });
-                setIsFlipped(false);
-                setHasInteracted(true);
-            };
-
-            useEffect(() => {
-                const handleKeyDown = (e) => {
-                    if (showInfo || cards.length === 0) return;
-                    if (e.key === ' ') { e.preventDefault(); setIsFlipped(prev => !prev); }
-                    else if (e.key === 'Enter') {
-                        e.preventDefault();
-                        if (!isFlipped) speak(cards[0].word);
-                        else {
-                            const s = getLastEnglishSentence(cards[0].backText);
-                            if (s) speak(s);
-                        }
-                    } else if (isFlipped) {
-                        if (e.key === '1') handleSRS('again');
-                        else if (e.key === '2') handleSRS('hard');
-                        else if (e.key === '3') handleSRS('good');
-                        else if (e.key === '4') handleSRS('easy');
-                    }
-                };
-                window.addEventListener('keydown', handleKeyDown);
-                return () => window.removeEventListener('keydown', handleKeyDown);
-            }, [isFlipped, cards, showInfo]);
-
-            const handleFileUpload = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                setHasInteracted(true);
-                const reader = new FileReader();
-                reader.onload = (evt) => {
-                    const bstr = evt.target.result;
-                    const workbook = XLSX.read(bstr, { type: 'binary' });
-                    const ws = workbook.Sheets[workbook.SheetNames[0]];
-                    const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
-                    const parsed = data.filter(row => row[0]).map(row => ({
-                        word: String(row[0]).trim(),
-                        backText: row[1] ? String(row[1]).trim() : ''
-                    }));
-                    if (parsed.length > 0) {
-                        setInitialData(parsed);
-                        setCards(parsed);
-                        setTotalInitial(parsed.length);
-                        setStats({ again: 0, hard: 0, good: 0, easy: 0 });
-                        setIsFlipped(false);
-                    }
-                };
-                reader.readAsBinaryString(file);
-                e.target.value = '';
-            };
-
-            const getFontSize = (text) => {
-                if (!text) return '1.5rem';
-                const charCount = text.length;
-                const lineCount = text.split('\n').filter(l => l.trim() !== "").length;
-                if (lineCount > 10 || charCount > 250) return '0.8rem';
-                if (lineCount > 7 || charCount > 180) return '1rem';
-                if (lineCount > 5 || charCount > 100) return '1.25rem';
-                if (lineCount > 3 || charCount > 50) return '1.5rem';
-                return '2rem';
-            };
-
-            return (
-                <div className="min-h-screen flex flex-col items-center py-10 px-4">
-                    {showInfo && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-                            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
-                                <div className="flex justify-between items-center p-6 border-b border-slate-100">
-                                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                                        <Icon name="Info" size={24} className="text-blue-500" /> 操作說明
-                                    </h2>
-                                    <button onClick={() => setShowInfo(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
-                                        <Icon name="X" size={24} />
-                                    </button>
-                                </div>
-                                <div className="p-6 space-y-6">
-                                    <section>
-                                        <h3 className="font-bold text-slate-700 mb-2 border-l-4 border-blue-500 pl-2 text-sm uppercase">鍵盤快捷鍵</h3>
-                                        <ul className="space-y-1.5 text-sm text-slate-600">
-                                            <li><kbd className="px-2 py-0.5 bg-slate-100 border rounded text-xs">Space</kbd> 卡片翻面</li>
-                                            <li><kbd className="px-2 py-0.5 bg-slate-100 border rounded text-xs">Enter</kbd> 語音朗讀</li>
-                                            <li><kbd className="px-2 py-0.5 bg-slate-100 border rounded text-xs">1-4</kbd> 程度選擇</li>
-                                        </ul>
-                                    </section>
-                                    <section>
-                                        <h3 className="font-bold text-slate-700 mb-2 border-l-4 border-green-500 pl-2 text-sm uppercase">分類說明</h3>
-                                        <div className="space-y-2 text-sm text-slate-600">
-                                            <p><strong>1. Again:</strong> 記不住，立刻複習。</p>
-                                            <p><strong>2. Hard:</strong> 稍後複習。</p>
-                                            <p><strong>3. Good:</strong> 結尾複習。</p>
-                                            <p><strong>4. Easy:</strong> 熟記，移除本次練習。</p>
-                                        </div>
-                                    </section>
-                                </div>
-                                <button onClick={() => setShowInfo(false)} className="w-full py-4 bg-slate-50 font-bold text-slate-600 border-t">我知道了</button>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="w-full max-w-lg space-y-4 mb-8">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center">
-                            <h1 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-700">
-                                <Icon name="FileSpreadsheet" className="text-green-600" />
-                                單字學習卡 (SRS 模式)
-                            </h1>
-                            <button onClick={() => fileInputRef.current?.click()} className="w-full py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors border border-blue-200">
-                                <Icon name="Upload" size={20} /> 選擇 EXCEL 檔案
-                            </button>
-                            <input type="file" accept=".xlsx, .xls" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
-                        </div>
-                        {totalInitial > 0 && cards.length > 0 && (
-                            <div className="grid grid-cols-4 gap-2">
-                                {['again', 'hard', 'good', 'easy'].map(k => (
-                                    <div key={k} className="bg-white p-2 rounded-xl text-center border border-slate-100 flex items-center justify-center gap-2">
-                                        <div className="text-[10px] text-slate-400 font-bold uppercase">{k === 'again' ? '重來' : k === 'hard' ? '困難' : k === 'good' ? '良好' : '簡單'}</div>
-                                        <div className="text-lg font-bold">{stats[k]}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {cards.length > 0 ? (
-                        <div className="w-full max-w-lg">
-                            <div onClick={() => setIsFlipped(!isFlipped)} className="relative aspect-[4/3] bg-white rounded-[32px] shadow-lg border border-slate-200 cursor-pointer flex flex-col overflow-hidden">
-                                <div className="absolute top-0 left-0 w-full h-1 bg-slate-100 z-20">
-                                    <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${((totalInitial - cards.length) / totalInitial) * 100}%` }} />
-                                </div>
-                                <div className="absolute top-4 right-5 flex items-center gap-2 z-10">
-                                    <div className="text-[10px] font-bold text-slate-400 bg-white/80 px-2 py-1 rounded border">剩下: {cards.length} / {totalInitial}</div>
-                                    <button onClick={(e) => { e.stopPropagation(); setShowInfo(true); }} className="p-1.5 bg-slate-100 text-slate-500 rounded-full"><Icon name="Info" size={16} /></button>
-                                    <button onClick={toggleSpeechRate} className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded">語速 {baseRate}x</button>
-                                </div>
-                                <div className="flex-1 flex items-center justify-center p-8">
-                                    {!isFlipped ? (
-                                        <div className="flex items-center gap-4">
-                                            <span className="text-5xl font-bold text-slate-800 text-center">{cards[0].word}</span>
-                                            <button onClick={(e) => { e.stopPropagation(); speak(cards[0].word); }} className="p-2 text-blue-500 bg-blue-50 rounded-full"><Icon name="Volume2" size={24} /></button>
-                                        </div>
-                                    ) : (
-                                        <div className="w-full text-slate-700 font-medium overflow-y-auto max-h-full" style={{ fontSize: getFontSize(cards[0].backText) }}>
-                                            {cards[0].backText.split('\n').map((l, i) => {
-                                                const isEx = isExampleSentence(l);
-                                                return l.trim() && (
-                                                    <div key={i} className="flex justify-between items-start mb-1 group">
-                                                        <span className={isEx ? "text-slate-600" : ""}>{l}</span>
-                                                        {isEx && <button onClick={(e) => { e.stopPropagation(); speak(l); }} className="p-1 text-slate-300 hover:text-blue-400"><Icon name="Volume2" size={16} /></button>}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="py-2 bg-slate-50 border-t text-center text-[10px] text-slate-400">
-                                    {isFlipped ? '選擇程度 (1-4)' : '點擊翻面 • 看答案'}
-                                </div>
-                            </div>
-                            <div className={`grid grid-cols-4 gap-3 mt-8 transition-opacity ${isFlipped ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                                <button onClick={() => handleSRS('again')} className="py-4 bg-red-500 text-white rounded-2xl font-bold text-sm shadow-md">1. 重來</button>
-                                <button onClick={() => handleSRS('hard')} className="py-4 bg-orange-500 text-white rounded-2xl font-bold text-sm shadow-md">2. 困難</button>
-                                <button onClick={() => handleSRS('good')} className="py-4 bg-green-500 text-white rounded-2xl font-bold text-sm shadow-md">3. 良好</button>
-                                <button onClick={() => handleSRS('easy')} className="py-4 bg-blue-500 text-white rounded-2xl font-bold text-sm shadow-md">4. 簡單</button>
-                            </div>
-                        </div>
-                    ) : totalInitial > 0 && (
-                        <div className="w-full max-w-lg bg-white p-10 rounded-[40px] shadow-xl border border-slate-200 flex flex-col items-center text-center animate-in">
-                            <div className="p-6 bg-yellow-50 text-yellow-500 rounded-full mb-6 shadow-inner"><Icon name="Trophy" size={80} strokeWidth={1.5} /></div>
-                            <h2 className="text-3xl font-black text-slate-800 mb-2">複習完成！</h2>
-                            <p className="text-slate-500 mb-8 font-medium">太棒了，你已經克服了本次所有的挑戰。</p>
-                            <div className="w-full bg-slate-50 rounded-3xl p-6 border border-slate-100 mb-8 space-y-3">
-                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-2 mb-2"><Icon name="BarChart3" size={14} /> 練習數據</h3>
-                                {[
-                                    { label: 'Again (重來)', val: stats.again, color: 'bg-red-500' },
-                                    { label: 'Hard (困難)', val: stats.hard, color: 'bg-orange-500' },
-                                    { label: 'Good (良好)', val: stats.good, color: 'bg-green-500' },
-                                    { label: 'Easy (簡單)', val: stats.easy, color: 'bg-blue-500', isLast: true }
-                                ].map(s => (s.label && (
-                                    <div key={s.label} className="flex justify-between items-center text-sm font-semibold">
-                                        <div className="flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${s.color}`} /> {s.label}</div>
-                                        <span className={s.isLast ? "text-blue-600" : ""}>{s.val} {s.isLast ? "個" : "次"}</span>
-                                    </div>
-                                )))}
-                            </div>
-                            <div className="grid grid-cols-2 gap-4 w-full">
-                                <button onClick={restartSession} className="py-4 bg-blue-600 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-lg"><Icon name="RotateCcw" size={18} /> 重新練習</button>
-                                <button onClick={() => fileInputRef.current?.click()} className="py-4 bg-slate-100 text-slate-700 font-bold rounded-2xl border flex items-center justify-center gap-2"><Icon name="Upload" size={18} /> 匯入新檔</button>
-                            </div>
-                        </div>
-                    )}
+        <!-- Card -->
+        <div id="cardSection" class="hidden">
+            <div class="card-wrap" id="card">
+                <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar" style="width:0%"></div></div>
+                <div class="card-header">
+                    <div class="card-counter" id="cardCounter"></div>
+                    <button class="btn-info" id="infoBtn" title="說明">?</button>
+                    <button class="btn-rate" id="rateBtn">語速 0.8x</button>
                 </div>
-            );
-        }
+                <div class="card-body" id="cardBody">
+                    <!-- filled dynamically -->
+                </div>
+                <div class="card-footer" id="cardFooter">點擊翻面 • 看答案</div>
+            </div>
+            <div class="srs-grid hidden-btns" id="srsGrid">
+                <button class="btn-srs btn-again" data-type="again">1. 重來</button>
+                <button class="btn-srs btn-hard" data-type="hard">2. 困難</button>
+                <button class="btn-srs btn-good" data-type="good">3. 良好</button>
+                <button class="btn-srs btn-easy" data-type="easy">4. 簡單</button>
+            </div>
+        </div>
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+        <!-- Complete Screen -->
+        <div id="completeSection" class="hidden">
+            <div class="complete-screen">
+                <div class="trophy-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                </div>
+                <div class="complete-title">複習完成！</div>
+                <div class="complete-sub">太棒了，你已經克服了本次所有的挑戰。</div>
+                <div class="complete-stats">
+                    <div class="complete-stats-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M18 17V9M13 17V5M8 17v-4"/></svg>
+                        練習數據
+                    </div>
+                    <div class="complete-stat-row"><span><span class="dot" style="background:#ef4444"></span>Again (重來)</span><span id="finalAgain">0 次</span></div>
+                    <div class="complete-stat-row"><span><span class="dot" style="background:#f97316"></span>Hard (困難)</span><span id="finalHard">0 次</span></div>
+                    <div class="complete-stat-row"><span><span class="dot" style="background:#22c55e"></span>Good (良好)</span><span id="finalGood">0 次</span></div>
+                    <div class="complete-stat-row"><span><span class="dot" style="background:#3b82f6"></span>Easy (簡單)</span><span id="finalEasy" style="color:#2563eb">0 個</span></div>
+                </div>
+                <div class="complete-btns">
+                    <button class="btn-restart" id="restartBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        重新練習
+                    </button>
+                    <button class="btn-newfile" id="newFileBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                        匯入新檔
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info Modal -->
+<div class="modal-overlay hidden" id="modal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                操作說明
+            </div>
+            <button class="modal-close" id="modalClose">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-section">
+                <h3>鍵盤快捷鍵</h3>
+                <ul>
+                    <li><kbd>Space</kbd> 卡片翻面</li>
+                    <li><kbd>Enter</kbd> 語音朗讀</li>
+                    <li><kbd>1–4</kbd> 程度選擇</li>
+                </ul>
+            </div>
+            <div class="modal-section green">
+                <h3>分類說明</h3>
+                <ul>
+                    <li><strong>1. Again:</strong> 記不住，立刻複習。</li>
+                    <li><strong>2. Hard:</strong> 稍後複習。</li>
+                    <li><strong>3. Good:</strong> 結尾複習。</li>
+                    <li><strong>4. Easy:</strong> 熟記，移除本次練習。</li>
+                </ul>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal-close" id="modalCloseBtn">我知道了</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'word_flashcard_progress';
+const RATES = [0.5, 0.8, 1.0];
+
+let cards = [], initialData = [], totalInitial = 0;
+let stats = { again:0, hard:0, good:0, easy:0 };
+let isFlipped = false, hasInteracted = false;
+let speechRateIdx = 1; // 0.8x default
+
+// Elements
+const fileInput = document.getElementById('fileInput');
+const uploadBtn = document.getElementById('uploadBtn');
+const statsGrid = document.getElementById('statsGrid');
+const cardSection = document.getElementById('cardSection');
+const completeSection = document.getElementById('completeSection');
+const card = document.getElementById('card');
+const cardBody = document.getElementById('cardBody');
+const cardFooter = document.getElementById('cardFooter');
+const progressBar = document.getElementById('progressBar');
+const cardCounter = document.getElementById('cardCounter');
+const srsGrid = document.getElementById('srsGrid');
+const rateBtn = document.getElementById('rateBtn');
+const infoBtn = document.getElementById('infoBtn');
+const modal = document.getElementById('modal');
+const modalClose = document.getElementById('modalClose');
+const modalCloseBtn = document.getElementById('modalCloseBtn');
+const restartBtn = document.getElementById('restartBtn');
+const newFileBtn = document.getElementById('newFileBtn');
+
+// Load saved progress
+try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        const d = JSON.parse(saved);
+        cards = d.cards || [];
+        initialData = d.initialData || [];
+        totalInitial = d.totalInitial || 0;
+        stats = d.stats || { again:0, hard:0, good:0, easy:0 };
+        hasInteracted = d.hasInteracted || false;
+        if (totalInitial > 0) render();
+    }
+} catch(e) {}
+
+function saveProgress() {
+    if (totalInitial === 0) return;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ cards, initialData, totalInitial, stats, hasInteracted })); } catch(e) {}
+}
+
+function speak(text) {
+    if (!text) return;
+    window.speechSynthesis.cancel();
+    const englishOnly = text.replace(/[\u4e00-\u9fa5]/g, '').trim();
+    if (!englishOnly) return;
+    const u = new SpeechSynthesisUtterance(englishOnly);
+    u.lang = 'en-US';
+    u.rate = RATES[speechRateIdx];
+    window.speechSynthesis.speak(u);
+}
+
+function isExampleSentence(text) {
+    return !/[\[\]\/]/.test(text) && /[a-zA-Z]/.test(text);
+}
+
+function getLastEnglishSentence(backText) {
+    if (!backText) return null;
+    const lines = backText.split('\n').map(l => l.trim()).filter(l => l);
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (isExampleSentence(lines[i])) return lines[i];
+    }
+    return null;
+}
+
+function getFontSize(text) {
+    if (!text) return '1.5rem';
+    const charCount = text.length;
+    const lineCount = text.split('\n').filter(l => l.trim()).length;
+    if (lineCount > 10 || charCount > 250) return '0.8rem';
+    if (lineCount > 7 || charCount > 180) return '1rem';
+    if (lineCount > 5 || charCount > 100) return '1.25rem';
+    if (lineCount > 3 || charCount > 50) return '1.5rem';
+    return '2rem';
+}
+
+function updateStats() {
+    document.getElementById('statAgain').textContent = stats.again;
+    document.getElementById('statHard').textContent = stats.hard;
+    document.getElementById('statGood').textContent = stats.good;
+    document.getElementById('statEasy').textContent = stats.easy;
+}
+
+function speakerSVG(size=16) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
+}
+
+function renderCard() {
+    if (cards.length === 0) return;
+    const cur = cards[0];
+    const pct = ((totalInitial - cards.length) / totalInitial) * 100;
+    progressBar.style.width = pct + '%';
+    cardCounter.textContent = `剩下: ${cards.length} / ${totalInitial}`;
+
+    if (!isFlipped) {
+        cardBody.innerHTML = `
+            <div class="front-content">
+                <span class="front-word">${escHtml(cur.word)}</span>
+                <button class="btn-speak" id="speakFrontBtn">${speakerSVG(24)}</button>
+            </div>`;
+        cardFooter.textContent = '點擊翻面 • 看答案';
+        document.getElementById('speakFrontBtn').addEventListener('click', e => { e.stopPropagation(); speak(cur.word); });
+    } else {
+        const lines = (cur.backText || '').split('\n').map(l => l.trim()).filter(l => l);
+        const linesHtml = lines.map((l, i) => {
+            const isEx = isExampleSentence(l);
+            return `<div class="back-line">
+                <span>${escHtml(l)}</span>
+                ${isEx ? `<button class="back-line-speak" data-line="${escAttr(l)}">${speakerSVG(16)}</button>` : ''}
+            </div>`;
+        }).join('');
+        cardBody.innerHTML = `<div class="back-content" style="font-size:${getFontSize(cur.backText)}">${linesHtml}</div>`;
+        cardFooter.textContent = '選擇程度 (1-4)';
+        cardBody.querySelectorAll('.back-line-speak').forEach(btn => {
+            btn.addEventListener('click', e => { e.stopPropagation(); speak(btn.dataset.line); });
+        });
+    }
+}
+
+function render() {
+    statsGrid.classList.toggle('hidden', totalInitial === 0 || cards.length === 0);
+    cardSection.classList.toggle('hidden', cards.length === 0);
+    completeSection.classList.toggle('hidden', !(totalInitial > 0 && cards.length === 0));
+
+    if (cards.length === 0 && totalInitial > 0) {
+        // Show complete
+        document.getElementById('finalAgain').textContent = stats.again + ' 次';
+        document.getElementById('finalHard').textContent = stats.hard + ' 次';
+        document.getElementById('finalGood').textContent = stats.good + ' 次';
+        document.getElementById('finalEasy').textContent = stats.easy + ' 個';
+        return;
+    }
+    if (cards.length > 0) {
+        updateStats();
+        renderCard();
+        srsGrid.classList.toggle('hidden-btns', !isFlipped);
+    }
+}
+
+function handleSRS(type) {
+    if (cards.length === 0) return;
+    const cur = cards[0];
+    const rest = cards.slice(1);
+    let newCards = [...rest];
+    stats[type]++;
+    switch(type) {
+        case 'again': newCards.splice(1, 0, cur); break;
+        case 'hard': newCards.splice(Math.floor(newCards.length / 2), 0, cur); break;
+        case 'good': newCards.push(cur); break;
+        case 'easy': break;
+    }
+    cards = newCards;
+    isFlipped = false;
+    render();
+    saveProgress();
+    if (cards.length > 0 && hasInteracted) speak(cards[0].word);
+}
+
+function flip() {
+    if (cards.length === 0) return;
+    isFlipped = !isFlipped;
+    render();
+    if (hasInteracted) {
+        if (!isFlipped) speak(cards[0].word);
+        else { const s = getLastEnglishSentence(cards[0].backText); if (s) speak(s); }
+    }
+}
+
+function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(str) {
+    return String(str).replace(/"/g,'&quot;');
+}
+
+// Events
+uploadBtn.addEventListener('click', () => fileInput.click());
+newFileBtn.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    hasInteracted = true;
+    const reader = new FileReader();
+    reader.onload = evt => {
+        const wb = XLSX.read(evt.target.result, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        const parsed = data.filter(r => r[0]).map(r => ({
+            word: String(r[0]).trim(),
+            backText: r[1] ? String(r[1]).trim() : ''
+        }));
+        if (parsed.length > 0) {
+            initialData = parsed;
+            cards = [...parsed];
+            totalInitial = parsed.length;
+            stats = { again:0, hard:0, good:0, easy:0 };
+            isFlipped = false;
+            render();
+            saveProgress();
+            speak(cards[0].word);
+        }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = '';
+});
+
+card.addEventListener('click', () => flip());
+
+srsGrid.querySelectorAll('.btn-srs').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); handleSRS(btn.dataset.type); });
+});
+
+rateBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    speechRateIdx = (speechRateIdx + 1) % RATES.length;
+    rateBtn.textContent = `語速 ${RATES[speechRateIdx]}x`;
+});
+
+infoBtn.addEventListener('click', e => { e.stopPropagation(); modal.classList.remove('hidden'); });
+modalClose.addEventListener('click', () => modal.classList.add('hidden'));
+modalCloseBtn.addEventListener('click', () => modal.classList.add('hidden'));
+modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
+
+restartBtn.addEventListener('click', () => {
+    if (!initialData.length) return;
+    cards = [...initialData].sort(() => Math.random() - 0.5);
+    stats = { again:0, hard:0, good:0, easy:0 };
+    isFlipped = false;
+    hasInteracted = true;
+    render();
+    saveProgress();
+    speak(cards[0].word);
+});
+
+window.addEventListener('keydown', e => {
+    if (!modal.classList.contains('hidden') || cards.length === 0) return;
+    if (e.key === ' ') { e.preventDefault(); flip(); }
+    else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (!isFlipped) speak(cards[0].word);
+        else { const s = getLastEnglishSentence(cards[0].backText); if (s) speak(s); }
+    } else if (isFlipped) {
+        if (e.key === '1') handleSRS('again');
+        else if (e.key === '2') handleSRS('hard');
+        else if (e.key === '3') handleSRS('good');
+        else if (e.key === '4') handleSRS('easy');
+    }
+});
+</script>
 </body>
 </html>
